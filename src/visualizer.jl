@@ -11,7 +11,6 @@ mutable struct CoreVisualizer
         command_channel = Observable(scope, "meshcat-command", UInt8[])
         request_channel = Observable(scope, "meshcat-request", "")
         controls_channel = Observable(scope, "meshcat-controls", [])
-        viewer_name = "meshcat_viewer_$(scope.id)"
 
         onimport(scope, @js function(mc)
             @var element = this.dom.children[0]
@@ -114,7 +113,19 @@ function send(c::CoreVisualizer, cmd::AbstractCommand)
     nothing
 end
 
-Base.wait(c::CoreVisualizer) = WebIO.ensure_connection(c.scope.pool)
+function Base.wait(c::CoreVisualizer)
+    pool = c.scope.pool
+    while true
+        while isready(pool.new_connections)
+            push!(pool.connections, take!(pool.new_connections))
+        end
+        if !isempty(pool.connections)
+            break
+        else
+            sleep(0.25)
+        end
+    end
+end
 
 """
     vis = Visualizer()
